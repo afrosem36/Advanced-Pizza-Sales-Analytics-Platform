@@ -8,6 +8,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
+import io
+import requests
+import os
 
 # ---------------------------------------------------------
 # PAGE CONFIG
@@ -44,22 +47,65 @@ st.markdown("### Comprehensive Business Intelligence & Predictive Insights")
 # ---------------------------------------------------------
 # FILE UPLOAD
 # ---------------------------------------------------------
+st.subheader("📁 Data Input")
+
+GITHUB_SAMPLE_URL = (
+    "https://raw.githubusercontent.com/"
+    "afrosem36/Advanced-Pizza-Sales-Analytics-Platform/"
+    "main/Sample%20Data1.xlsx"
+)
+
+sample_data = None
+try:
+    response = requests.get(GITHUB_SAMPLE_URL)
+    response.raise_for_status()
+    sample_data = response.content
+except:
+    sample_data = b""
+
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.markdown("### Step 1️⃣: Download Sample File")
+    st.markdown("Click the button below to download the sample Excel file.")
+    if sample_data:
+        st.download_button(
+            label="📥 Download Sample Excel",
+            data=sample_data,
+            file_name="Sample_Pizza_Sales.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.error("Could not fetch sample file.")
+
+with col2:
+    st.markdown("### Step 2️⃣: Upload File")
+    st.markdown("Upload the downloaded file (or your own CSV/Excel).")
+
+st.markdown("---")
+
 uploaded_file = st.file_uploader(
-    "📁 Upload pizza_sales.csv",
-    type=["csv"],
-    help="Upload your pizza sales CSV file to generate insights"
+    "Upload your pizza sales file (CSV / Excel)",
+    type=["csv", "xlsx"]
 )
 
 if uploaded_file is None:
-    st.info("👆 Please upload a CSV file to begin analysis")
+    st.info("👆 Please upload a file to begin analysis")
     st.stop()
+
+df = None
+if uploaded_file.name.endswith(".csv"):
+    df = pd.read_csv(uploaded_file)
+else:
+    df = pd.read_excel(uploaded_file)
+
+st.success("✅ File uploaded successfully! Analysis below...")
 
 # ---------------------------------------------------------
 # LOAD & PREP DATA
 # ---------------------------------------------------------
 @st.cache_data
-def load_data(file):
-    df = pd.read_csv(file)
+def prep_data(df):
     df.columns = df.columns.str.strip().str.lower()
     
     df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce")
@@ -67,7 +113,6 @@ def load_data(file):
     for col in ["quantity", "unit_price", "total_price"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     
-    # Date fields
     df["year"] = df["order_date"].dt.year.astype(str)
     df["month"] = df["order_date"].dt.month
     df["month_name"] = df["order_date"].dt.month_name()
@@ -79,7 +124,7 @@ def load_data(file):
     
     return df
 
-df = load_data(uploaded_file)
+df = prep_data(df)
 
 # ---------------------------------------------------------
 # SIDEBAR FILTERS & ANALYSIS SELECTOR
